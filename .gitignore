@@ -1,0 +1,12 @@
+venv
+.idea
+**/.idea/
+**/__pycache__/
+*.whl
+*.png
+*.jpg
+*.jpeg
+*.dbc.xml
+*.dbe.xml
+*.csv
+*.zip
