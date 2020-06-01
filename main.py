@@ -8,6 +8,7 @@ from coverage_collector import CoverageCollector
 import utils
 bng = BeamNGpy('localhost', 64256)
 
+# can only run a suite of test cases with the same name and a number at the moment
 FIRST_TEST = 96
 LAST_TEST = 98
 
@@ -49,10 +50,10 @@ for i in range(FIRST_TEST, LAST_TEST):
     # adds binned behavior to dict of road
     coverage = {'steering': cov_collector.get_steering_bins(), 'throttle': cov_collector.get_throttle_bins(),
                 'speed_steering': cov_collector.get_speed_steering_2d()}
-    print("type: ", type(coverage['speed_steering']))
-    print("entropy steering: ", utils.entropy_compute_1d(coverage['steering']))
-    print("2d diff: ", utils.bin_difference_2d(coverage['speed_steering'], coverage['speed_steering'], 'binary', False))
+
+    # print("entropy steering: ", utils.entropy_compute_1d(coverage['steering']))
+    # print("2d diff: ", utils.bin_difference_2d(coverage['speed_steering'], coverage['speed_steering'], 'binary', False))
     # adds the dictionary of the current road to the global one
     tests_dict[str(i)] = coverage
 
-print(utils.list_difference_1d([2,6,7], [1,6,8], 'squared', normalized=True))
+# print(utils.list_difference_1d([2,6,7], [1,6,8], 'squared', normalized=True))
