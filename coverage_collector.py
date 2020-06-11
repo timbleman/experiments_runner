@@ -3,10 +3,11 @@ from beamngpy.sensors import Electrics
 
 import numpy as np
 from scipy import stats
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, LineString, Point
 
-# maybe impact information gathering, see DriveBuild
-from threading import Lock
+from prefab_parser import PrefabParser
+
+from typing import Dict, List
 
 NUM_BINS = 16
 STEERING_RANGE = (-1, 1)
@@ -15,41 +16,41 @@ SPEED_RANGE = (0, 100)
 
 
 class CoverageCollector:
-    def __init__(self, vehicle: Vehicle, bng: BeamNGpy):
+    def __init__(self, vehicle: Vehicle, bng: BeamNGpy, prefab_path):
         """ initializes CoverageCollector and adds electrics sensor to vehicle
             has to be called for each new vehicle
 
         :param vehicle: BeamNG vehicle
         :param bng: BeamNG instance
         """
+        prefab_parser = PrefabParser(prefab_path)
+        # maybe look if the desired road exists?
+        # if self.roads is None:
+        #    self.roads = self.bng.get_roads()  #self.bng.get_roads() #get_road_edges('main_road')
+        #    print(self.roads)
+        self.main_road = prefab_parser.parse_road('road_0')
+        self.road_width = prefab_parser.get_road_width()
+
+        # to check whether the car just left the road
+        self.previously_offroad = True
+
         self.speed_arr = []
         self.throttle_arr = []
         self.steering_arr = []
         self.brake_arr = []
+        self.distance_arr = []
 
         self.vehicle = vehicle
         self.bng = bng
-        self.roads = None
         electrics = Electrics()
         self.vehicle.attach_sensor("electrics", electrics)
 
-        self._sim_lock = Lock()
-
     def collect(self):
         """ Collects sensor data in specific lists, must be called at a fixed number of steps
+            may need a Lock() like in DriveBuild
 
         :return: none
         """
-        if self.roads is None:
-            self.roads = self.bng.get_roads()  #self.bng.get_roads() #get_road_edges('main_road')
-            print(self.roads)
-
-            #copied from DriveBuild
-            self._sim_lock.acquire()
-            self.roads = self.bng.get_road_edges('main_road')
-            self._sim_lock.release()
-            # print("self.bng.scenario-_get_roads_list: ", self.bng.scenario.get_roads_list())
-
         sensors = self.bng.poll_sensors(self.vehicle)
         electronics = sensors["electrics"]["values"]
         state = self.vehicle.state
@@ -61,41 +62,32 @@ class CoverageCollector:
         self.brake_arr.append(electronics["brake_input"])
         car_position = (self.vehicle.state['pos'][0], self.vehicle.state['pos'][1])
         #print("pos? ", car_position)
-        #self._is_offroad()
-
-    def _is_offroad(self):
-        from typing import Dict, List
-        #bbox = self._poll_request_data()[0]
-        # TODO this blocks everything, needs second socket?
-        #bbox = self.vehicle.get_bbox()
-        #bbox = self.bng.get_vehicle_bbox(self.vehicle)
-        bbox = True
-        #print("hi0, bbox: ", bbox)
-
-        def _to_polygon(road_edges: List[Dict[str, float]]) -> Polygon:
-            points = [p["left"][0:2] for p in road_edges]
-            right_edge_points = [p["right"][0:2] for p in road_edges]
-            right_edge_points.reverse()
-            points.extend(right_edge_points)
-            return Polygon(shell=points)
-
-        if bbox:
-            offroad = True
-            #print("self.bng.scenario.roads: ", self.bng.scenario.roads)
-            for road in self.roads:
-                print("road.rid: ", road.rid)
-                edges = self.bng.get_road_edges(road.rid)
-                polygon = _to_polygon(edges)
-                print("hi3")
-                '''
-                if polygon.intersects(bbox):
-                    offroad = False
-                    print("hi4")
-                    break
-                '''
-            return offroad
+        distance_to_c = self._distance_to_center(car_position)
+        self.distance_arr.append(distance_to_c)
+        # look if the car is leaving the road
+        if self._is_offroad(distance_to_c):
+            print("offroad!")
+            if not self.previously_offroad:
+                self._obe_coverage(self.speed_arr[-1], state)
+                self.previously_offroad = True
         else:
-            raise Exception('Could not get bbox')
+            self.previously_offroad = False
+
+    def _obe_coverage(self, speed: float, state: Dict):
+        """ Get only called when an OBE occurs, the coverage gets collected
+
+        :param speed: the current speed of the vehicle
+        :param state: state of vehicle as dict, includes speed, position and direction vectors
+        :return: None
+        """
+        print("new obe at speed ", speed, " state ", state)
+
+    def _distance_to_center(self, car_pos):
+        return self.main_road.distance(Point(car_pos))
+
+    def _is_offroad(self, distance_to_c: int):
+        # TODO this simple factor may need some tweaking
+        return distance_to_c > (self.road_width * 0.5)
 
     def get_bins(self, data: list, bounds):
         """ Returns a list of bins for an array, the bins are non-binary but counting
@@ -119,6 +111,9 @@ class CoverageCollector:
     def get_speed_bins(self):
         # TODO change the bounds, find a good compromise, maybe dynamically
         return self.get_bins(self.speed_arr, SPEED_RANGE)
+
+    def get_distance_bins(self, bounds):
+        return self.get_bins(self.distance_arr, bounds)
 
     def get_speed_steering_2d(self):
         """ Returns a two dimensional array of bins with the steering input as x-axis and the speed as y-axis

@@ -5,7 +5,6 @@ from pathlib import Path
 from beamngpy import BeamNGpy, Scenario, Vehicle
 
 from coverage_collector import CoverageCollector
-from prefab_parser import PrefabParser
 import utils
 bng = BeamNGpy('localhost', 64256)
 
@@ -18,7 +17,6 @@ tests_dict = {}
 vehicle = Vehicle('ego', model='etk800', licence='PYTHON')
 
 for i in range(FIRST_TEST, LAST_TEST):
-    cov_collector = CoverageCollector(vehicle, bng)
     # Load different scenarios.
     scenario_name = 'drivebuild_' + str(i)
     scenario = Scenario('drivebuild', scenario_name)
@@ -28,20 +26,16 @@ for i in range(FIRST_TEST, LAST_TEST):
     destination_path = 'C:\\Users\\fraun\\Documents\\BeamNG\\levels\\drivebuild\\scenarios'
     scenario.path = Path(destination_path)
     prefab_path = Path(destination_path).joinpath(Path(scenario_name + ".prefab"))
-    print("path ", prefab_path, " exists: ", prefab_path.exists())
 
-    prefab_parser = PrefabParser(prefab_path)
-    main_road_lstr = prefab_parser.parse_road('road_0')
-    '''
+    cov_collector = CoverageCollector(vehicle, bng, prefab_path)
+
     bng.open()
     bng.load_scenario(scenario)
     bng.start_scenario()
 
-    vehicle.ai_drive_in_lane(True)
-    vehicle.ai_set_speed(20, "limit")
-    vehicle.ai_set_mode("span")
-
-    print("scenario.roads: ", scenario.roads)
+    #vehicle.ai_drive_in_lane(True)
+    #vehicle.ai_set_speed(20, "limit")
+    vehicle.ai_set_mode("disabled")
 
     # Data collecting loop. Collects every three steps data.
     counter = 0
@@ -64,6 +58,6 @@ for i in range(FIRST_TEST, LAST_TEST):
     # print("2d diff: ", utils.bin_difference_2d(coverage['speed_steering'], coverage['speed_steering'], 'binary', False))
     # adds the dictionary of the current road to the global one
     tests_dict[str(i)] = coverage
-    '''
+
 
 # print(utils.list_difference_1d([2,6,7], [1,6,8], 'squared', normalized=True))

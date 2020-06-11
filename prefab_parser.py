@@ -2,14 +2,20 @@ import re
 from shapely.geometry import LineString
 import matplotlib.pyplot as plt
 
-PLOT_VISIBLE = True
+PLOT_VISIBLE = False
 
 class PrefabParser:
     def __init__(self, file_name: str):
         self.file_name = file_name
         self.nodes = []
+        self.road_width = 0
 
     def parse_road(self, road_name: str):
+        """ parses the prefab of a scenario and extracts the trajectory of a selected road
+
+        :param road_name: name (not id!) of the road as string
+        :return: LineString of the road
+        """
         with open(self.file_name, 'r') as prefab_file_object:
             prefab_file = prefab_file_object.read()
             road_search = re.search(road_name + r'\).*?\};', prefab_file, re.DOTALL)  # re.search('road_name\)(.*)\};', prefab_file)
@@ -25,7 +31,9 @@ class PrefabParser:
                 assert extracted_coordinates.__len__() == 4, "Wrong number of coordinates found"
                 node_point = (float(extracted_coordinates[0]), float(extracted_coordinates[1]))
                 self.nodes.append(node_point)
-            print(self.nodes)
+
+                if self.road_width == 0:
+                    self.road_width = float(extracted_coordinates[3])
 
             lstr = LineString(self.nodes)
             if PLOT_VISIBLE:
@@ -33,3 +41,6 @@ class PrefabParser:
                 plt.plot(x, y)
                 plt.show()
             return lstr
+
+    def get_road_width(self):
+        return self.road_width
