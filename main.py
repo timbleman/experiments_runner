@@ -12,7 +12,7 @@ bng = BeamNGpy('localhost', 64256)
 # can only run a suite of test cases with the same name and a number at the moment
 SCENARIO_BASE_NAME = 'road_'
 FIRST_TEST = 1
-LAST_TEST = 4
+LAST_TEST = 6
 
 tests_dict = {}
 
@@ -35,15 +35,15 @@ for i in range(FIRST_TEST, LAST_TEST+1):
     bng.load_scenario(scenario)
     bng.start_scenario()
 
-    vehicle.ai_drive_in_lane(True)
-    vehicle.ai_set_speed(20, "limit")
-    vehicle.ai_set_mode("span")
+    #vehicle.ai_drive_in_lane(True)
+    #vehicle.ai_set_speed(20, "limit")
+    vehicle.ai_set_mode("disabled")
 
     # Data collecting loop. Collects every three steps data.
     counter = 0
     last_counter = 0
     steps = 2
-    while counter < 100:
+    while counter < 300:
         if counter > last_counter + steps:
             cov_collector.collect()
         counter += 1
@@ -54,17 +54,20 @@ for i in range(FIRST_TEST, LAST_TEST+1):
     bng.close()
     # adds binned behavior to dict of road
     coverage = {'cov_collector': cov_collector, 'steering': cov_collector.get_steering_bins(),
-                'throttle': cov_collector.get_throttle_bins(), 'speed_steering': cov_collector.get_speed_steering_2d()}
+                'throttle': cov_collector.get_throttle_bins(), 'speed_steering': cov_collector.get_speed_steering_2d(),
+                'obe': cov_collector.get_obe_speed_angle_bins()}
     cov_collector.get_speed_steering_2d()  # remove
+    print(coverage['obe'])
     # print("entropy steering: ", utils.entropy_compute_1d(coverage['steering']))
     # print("2d diff: ", utils.bin_difference_2d(coverage['speed_steering'], coverage['speed_steering'], 'binary', False))
     # adds the dictionary of the current road to the global one
     tests_dict[str(i)] = coverage
 
-print("tests_dict: ", tests_dict)
 suitebh = SuiteBehaviourComputer(tests_dict, FIRST_TEST, LAST_TEST)
 suitebh.calculate_suite_speed_steering_coverage()
 suitebh.road_compare_1d(str(FIRST_TEST), 'steering')
+
+print("tests_dict: ", tests_dict)
 # for i in range(FIRST_TEST, LAST_TEST):
 #    coverage_dict = tests_dict[str(i)]
 #    print(i, "achieved 2d coverage: ", coverage_dict['cov_collector'])

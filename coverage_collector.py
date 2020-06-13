@@ -3,7 +3,8 @@ from beamngpy.sensors import Electrics
 
 import numpy as np
 from scipy import stats
-from shapely.geometry import Polygon, LineString, Point
+from shapely.geometry import Polygon, LineString, Point, MultiPoint, mapping
+from shapely import ops
 
 from prefab_parser import PrefabParser
 
@@ -13,6 +14,7 @@ NUM_BINS = 16
 STEERING_RANGE = (-1, 1)
 THROTTLE_BRAKE_RANGE = (0, 1)
 SPEED_RANGE = (0, 100)
+ANGLE_RANGE = (-np.pi, np.pi)
 
 
 class CoverageCollector:
@@ -39,6 +41,8 @@ class CoverageCollector:
         self.steering_arr = []
         self.brake_arr = []
         self.distance_arr = []
+        self.obe_speed_arr = []
+        self.obe_angle_arr = []
 
         self.vehicle = vehicle
         self.bng = bng
@@ -80,7 +84,47 @@ class CoverageCollector:
         :param state: state of vehicle as dict, includes speed, position and direction vectors
         :return: None
         """
-        print("new obe at speed ", speed, " state ", state)
+        def angle_between_3_points(point_road: Point, point_intersect: Point, point_car: Point):
+            a = (point_intersect.x - point_road.x, point_intersect.y - point_road.y)
+            b = (point_intersect.x - point_car.x, point_intersect.y - point_car.y)
+            numerator = np.multiply(a, b)
+            # TODO wrong calculation
+            angle = np.arctan2(point_road.y - point_intersect.y, point_road.x - point_intersect.x) - \
+                                np.arctan2(point_car.y - point_intersect.y, point_car.x - point_intersect.x)
+
+            return angle
+
+        car_position = (state['pos'][0], state['pos'][1])
+        car_velocity = (state["vel"][0], state["vel"][1])
+        assert car_velocity is not (0, 0), "An OBE cannot happen at 0 kph"
+        factor = 5
+        #print("Car position and volcity and volocity multiplied: ", car_position, car_velocity, np.multiply(factor, car_velocity))
+        car_vector = [0, car_position, 0]
+        intersecting = False
+        # increase the length of the vector if the lines do not intersect
+        while(not intersecting):
+            car_vector[0] = np.subtract(car_position, np.multiply(factor, car_velocity))
+            car_vector[2] = np.add(car_position, np.multiply(factor, car_velocity))
+            car_vector_lstr = LineString(car_vector)
+            intersecting = self.main_road.intersects(car_vector_lstr)
+            factor += 5
+
+        car_vector_lstr = LineString(car_vector)
+        intersecting_point = self.main_road.intersection(car_vector_lstr)
+        print("intersection point: ", intersecting_point)
+
+        # turn road to multipoint series to find nearest neighbor
+        # TODO find a better way to get the closest point
+        main_road_multipoint = MultiPoint(np.array(self.main_road))
+        orig_point, nearest_point = ops.nearest_points(intersecting_point, main_road_multipoint)
+        # print("main_road_multipoint ", main_road_multipoint)
+        # print("orig_point, nearest_point ", orig_point, nearest_point)
+
+        obe_angle = angle_between_3_points(nearest_point, intersecting_point, Point(car_position))
+        print("angle ", obe_angle)
+
+        self.obe_speed_arr.append(np.linalg.norm(state["vel"]) * 3.6)
+        self.obe_angle_arr.append(obe_angle)
 
     def _distance_to_center(self, car_pos):
         return self.main_road.distance(Point(car_pos))
@@ -122,4 +166,9 @@ class CoverageCollector:
         """
         histogram, steering_edges, speed_edges = np.histogram2d(self.steering_arr, self.speed_arr, bins=NUM_BINS,
                                                                 range=(STEERING_RANGE, SPEED_RANGE), normed=False)
+        return histogram
+
+    def get_obe_speed_angle_bins(self):
+        histogram, speed_edges, angle_edges = np.histogram2d(self.obe_speed_arr, self.obe_angle_arr, bins=NUM_BINS,
+                                                                range=(SPEED_RANGE, ANGLE_RANGE), normed=False)
         return histogram

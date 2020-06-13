@@ -55,7 +55,7 @@ def list_difference_1d(a: list, b: list, function: str, normalized: bool = True)
     return options.get(function)()
 
 
-def bin_difference_2d(a: np.ndarray, b: np.ndarray, function: str, normalized: bool=True):
+def bin_difference_2d(a: np.ndarray, b: np.ndarray, function: str, normalized: bool = True):
     """ Calculates the distance between two two-dimensional arrays of bins, by flattening them
 
     :param a: first two-dimensional array

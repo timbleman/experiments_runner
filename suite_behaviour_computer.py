@@ -26,9 +26,22 @@ class SuiteBehaviourComputer:
         road_similarities = {}
         main_bin = self.test_dict.get(road_to_compare).get(measure)
         assert main_bin is not None, "The bin " + measure + " has not been added or spelling is incorrect"
-        print(main_bin)
+        # print(main_bin)
         for i in range(self.start, self.end + 1):
             road_similarities[str(i)] = utils.list_difference_1d(main_bin,
                                                                  self.test_dict.get(str(i)).get(measure),
                                                                  function='binary', normalized=True)
-        print(road_similarities)
+        # print(road_similarities)
+        self.test_dict.get(road_to_compare)[road_to_compare + ' ' + measure] = road_similarities
+
+    def road_compare_2d(self, road_to_compare: str, measure: str):
+        road_similarities = {}
+        main_bin = self.test_dict.get(road_to_compare).get(measure)
+        assert main_bin is not None, "The bin " + measure + " has not been added or spelling is incorrect"
+        # print(main_bin)
+        for i in range(self.start, self.end + 1):
+            road_similarities[str(i)] = utils.bin_difference_2d(main_bin,
+                                                                self.test_dict.get(str(i)).get(measure),
+                                                                function='binary', normalized=True)
+        # print(road_similarities)
+        self.test_dict.get(road_to_compare)[road_to_compare + ' ' + measure] = road_similarities
